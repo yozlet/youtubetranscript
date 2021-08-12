@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <title>YouTube Transcript - read YouTube videos</title>
+
+  <!-- Bootstrap core CSS -->
+  <link href="static/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="static/css/video.css" rel="stylesheet">
+
+  <!-- Custom fonts for this template -->
+  <link href="static/vendor/fontawesome-free/css/all.min.css" rel="stylesheet">
+  <link href="static/vendor/simple-line-icons/css/simple-line-icons.css" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700,300italic,400italic,700italic" rel="stylesheet" type="text/css">
+
+  <!-- Custom styles for this template -->
+  <link href="static/css/landing-page.css" rel="stylesheet">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-40262245-5"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-40262245-5');
+</script>
+
+
+<script type="text/javascript">
+
+// 2. This code loads the IFrame Player API code asynchronously.
+var tag = document.createElement('script');
+
+tag.src = "https://www.youtube.com/iframe_api";
+var firstScriptTag = document.getElementsByTagName('script')[0];
+firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+
+var player;
+
+var parser, xmlDoc;
+var HTML_captions = "";
+
+function HtmlEncode(s) {
+    return $('<div>').text(s).html();
+}
+
+function HtmlDecode(s) {
+    return $('<div>').html(s).text();
+}
+
+function getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, '\\$&');
+    var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, ' '));
+}
+
+var setSearchParam = function(key, value) {
+    if (!window.history.pushState) {
+        return;
+    }
+
+    if (!key) {
+        return;
+    }
+
+    var url = new URL(window.location.href);
+    var params = new window.URLSearchParams(window.location.search);
+    if (value === undefined || value === null) {
+        params.delete(key);
+    } else {
+        params.set(key, value);
+    }
+
+    url.search = params;
+    url = url.toString();
+    window.history.replaceState({url: url}, null, url);
+}
+
+
+// Parse the AJAX response and get the captions.
+function getCaption(ajax_response, video_id, from_server) {
+    if (from_server) {
+        if (ajax_response.getElementsByTagName("error").length > 0) {
+            err = ajax_response.getElementsByTagName("error")[0].innerHTML
+            document.getElementById("header_text").innerHTML = err
+            return
+        }
+    }
+    var success = false
+    document.getElementById("outputbox").setAttribute('style', '')
+    try {
+
+        //parser = new DOMParser();
+        //xmlDoc = parser.parseFromString(ajax_response, "text/xml");
+        //console.log(xmlDoc)
+        //console.log(xmlDoc.getElementsByTagName("transcript"))
+        if (false) { //xmlDoc.getElementsByTagName("transcript").length > 0) {
+            // Loop the results of the xmlDoc:
+            for (var i = 0; i < xmlDoc.getElementsByTagName("transcript")[0].childNodes.length; i++) {
+                console.log("tag" + i)
+                caption = xmlDoc.getElementsByTagName("transcript")[0].childNodes[i].innerHTML
+                console.log("caption" + caption)
+                start = parseFloat(ajax_response.getElementsByTagName("transcript")[0].childNodes[i].getAttribute('start'))
+                duration = parseFloat(ajax_response.getElementsByTagName("transcript")[0].childNodes[i].getAttribute('dur'))
+                end = start + duration
+                caption = caption.replace("&amp;#39;", "'")
+                caption = caption.replace("&amp;#39;", "'")
+
+                if (start > last_t + break_t) {
+                    HTML_captions += "<br/>";
+                }
+                HTML_captions += '<a class="youtube-marker" data-start="' + start + '" data-end="' + end + '">' + HtmlDecode(caption) + '</a>' + "<br/>";
+                last_t = start;
+            }
+        } else {
+            last_t = 0.0
+            break_t = 5.0 // seconds
+            // Loop the results of the ajax_response;
+            for (var i = 0; i < ajax_response.getElementsByTagName("transcript")[0].childNodes.length; i++) {
+                caption = ajax_response.getElementsByTagName("transcript")[0].childNodes[i].innerHTML
+                start = parseFloat(ajax_response.getElementsByTagName("transcript")[0].childNodes[i].getAttribute('start'))
+                duration = parseFloat(ajax_response.getElementsByTagName("transcript")[0].childNodes[i].getAttribute('dur'))
+                end = start + duration
+                caption = caption.replace("&amp;#39;", "'")
+                caption = caption.replace("&amp;#39;", "'")
+
+                if (start > last_t + break_t) {
+                    HTML_captions += "<br/>";
+                }
+                HTML_captions += '<a href="javascript:;" class="youtube-marker" data-start="' + start + '" data-end="' + end + '">' + HtmlDecode(caption) + '</a>' + "<br/>";
+                last_t = start;
+            }
+        }
+
+        document.getElementById("demo").innerHTML = "<i>Preparing captions...</i>";
+        setTimeout(fillData(), 2000);
+        success = true
+
+    } catch (err) {
+        console.log(err);
+
+        // Failed to get a caption.  Likely only auto-gen CC exits.
+        // Load the autogen page
+        document.getElementById("header_text").innerHTML = "Loading..."
+
+        if (!from_server) {
+            serverGetCaption(video_id);
+        }
+
+
+    }
+    
+    if (!from_server) {
+        console.log('creating player js')
+        player = new YT.Player('player', {
+            events: {
+                'onReady': onPlayerReady,
+                'onStateChange': onPlayerStateChange
+            }
+        });
+    }
+    if (success) {
+        document.getElementById("header_text").innerHTML = "Get a transcript:"
+        
+        document.getElementById("title").setAttribute('style', 'display:none;')
+        document.getElementById("title-search").setAttribute('style', '')
+
+        window.scrollTo(0, 0);
+        
+        // Init Markers
+        MarkersInit(markers);
+
+        // Register On Click Event Handler
+        var elements = document.querySelectorAll('.youtube-marker');
+        Array.prototype.forEach.call(elements, function(el, i) {
+            el.onclick = function() {
+                // Get Data Attribute
+                var pos = el.dataset.start;
+                // Seek
+                player.seekTo(pos);
+                player.playVideo()
+                setSearchParam('t', parseInt(pos))
+            }
+        });
+    }
+}
+
+function serverGetCaption(video_id) {
+    // Make an AJAX request to the server-side caption getting system
+    console.log("server call: ?server_vid=" + video_id)
+    $.ajax({
+        //type: "GET",
+        url: "?server_vid=" + video_id,
+        dataType: 'xml',
+    }).done(function(data) {
+        getCaption(data, video_id, true);
+    });
+}
+
+// Fill the data "captions" in a HTML "div" control.
+function fillData() {
+    try {
+        document.getElementById("demo").innerHTML = HTML_captions;
+    } catch (err) {
+        console.log(err);
+        document.getElementById("header_text").innerHTML = "Error at fillData function"
+        hideBox()
+    }
+
+}
+
+function parseURL(url) {
+    var parser = document.createElement('a'),
+        searchObject = {},
+        queries, split, i;
+    // Let the browser do the work
+    parser.href = url;
+    // Convert query string to object
+    queries = parser.search.replace(/^\?/, '').split('&');
+    for( i = 0; i < queries.length; i++ ) {
+        split = queries[i].split('=');
+        searchObject[split[0]] = split[1];
+    }
+    return {
+        protocol: parser.protocol,
+        host: parser.host,
+        hostname: parser.hostname,
+        port: parser.port,
+        pathname: parser.pathname,
+        search: parser.search,
+        searchObject: searchObject,
+        hash: parser.hash
+    };
+}
+
+function processVideo(top_box) {
+    if (top_box) {
+        video_url = document.getElementById("video_url_top").value
+    } else {
+        video_url = document.getElementById("video_url").value
+    }
+    processVideoHelpler(video_url)
+}
+
+function processVideoHelpler(video_url) {
+    // Read the youtube link
+    f = -1.0
+    f = video_url.search('youtu.be/')
+    if (f >= 0) {
+        f = f + 9
+    } else {
+        f = video_url.search('v=')
+        if (f >= 0) {
+            f = f + 2
+        }
+    }
+
+    if (f < 0) {
+        document.getElementById("header_text").innerHTML = "Failed to parse URL"
+        hideBox()
+        return false
+    }
+
+    video_id = video_url.substring(f, f + 11)
+
+    setSearchParam('v', video_id)
+
+    var urlparsed = parseURL(video_url)
+
+    if (urlparsed.searchObject.t) {
+        var time = ParseYoutubeTime(urlparsed.searchObject.t)
+        if (time > 0) {
+            setSearchParam('t', time)
+        }
+    }
+
+    processVideo2(video_id)
+}
+
+function processVideo2(video_id) {
+
+    document.getElementById("demo").innerHTML = ''
+    HTML_captions = "";
+
+    document.getElementById("embedded_video").innerHTML = '<iframe name="vidembed" id="player" src="https://www.youtube.com/embed/' + video_id + '?enablejsapi=1" frameborder="0" allowfullscreen class="video"></iframe>'
+    $.ajax({
+        //type: "GET",
+        url: "https://video.google.com/timedtext?type=track&v=" + video_id + "&id=0&lang=en",
+        //url: "http://www.youtube.com/watch?v=ywBV6M7VOFU",
+        crossDomain: true,
+        dataType: 'xml',
+    }).done(function(data) {
+        getCaption(data, video_id, false);
+    });
+    return false
+
+}
+
+function hideBox() {
+    document.getElementById("outputbox").setAttribute('style', 'display:none;')
+    document.getElementById("title").setAttribute('style', '')
+    document.getElementById("title-search").setAttribute('style', 'display:none;')
+    player.stopVideo()
+}
+
+function onYouTubeIframeAPIReady() {
+    console.log("onYouTubeIframeAPIReady")
+
+}
+
+function onPlayerReady(event) {
+    console.log("onPlayerReady")
+    // Search for a time
+    var url = new URL(window.location.href);
+    var t = url.searchParams.get("t");
+    if (t) {
+        var time = ParseYoutubeTime(t)
+        if (time > 0) {
+            setSearchParam('t', time)
+            event.target.seekTo(time)
+            console.log('seek to', time)
+            UpdateMarkersHelper(true, time)
+        }
+    }
+    event.target.playVideo();
+    ToggleAutoscroll(null)
+}
+
+
+function onPlayerStateChange(event) {
+    console.log("onstatechange")
+    var Update;
+    if (event.data == YT.PlayerState.PLAYING) {
+        Update = setInterval(function() {
+            UpdateMarkers('')
+        }, 100);
+    } else {
+        clearInterval(Update);
+    }
+}
+
+// Sample Markers on Page
+var MarkersInit = function(markers) {
+    var elements = document.querySelectorAll('.youtube-marker');
+    Array.prototype.forEach.call(elements, function(el, i) {
+        var time_start = el.dataset.start;
+        var time_end = el.dataset.end;
+        var id = el.dataset.id;;
+        if (id >= 1) {
+            id = id - 1;
+        } else {
+            id = 0;
+        }
+        marker = {};
+        marker.time_start = time_start;
+        marker.time_end = time_end;
+        marker.dom = el;
+        if (typeof(markers[id]) === 'undefined') {
+            markers[id] = [];
+        }
+        markers[id].push(marker);
+    });
+}
+
+// On Ready
+var markers = [];
+
+function ParseYoutubeTime(t) {
+    t = String(t)
+    t = t.toLowerCase()
+    var sec2 = 0
+    var found = false
+    // Could be 1h3m4s
+    idx = t.indexOf('h')
+    if (idx > 0) {
+        found = true
+        hours = parseInt(t.substring(0, idx))
+        t = t.substring(idx+1)
+        if (!isNaN(hours)) {
+            sec2 = sec2 + 3600 * hours
+        }
+    }
+
+    idx = t.indexOf('m')
+    if (idx > 0) {
+        found = true
+        mins = parseInt(t.substring(0, idx))
+        t = t.substring(idx+1)
+        if (!isNaN(mins)) {
+            sec2 = sec2 + 60 * mins
+        }
+    }
+
+    idx = t.indexOf('s')
+    if (idx > 0) {
+        found = true
+        secs = parseInt(t.substring(0, idx))
+        t = t.substring(idx+1)
+        if (!isNaN(secs)) {
+            sec2 = sec2 + secs
+        }
+    }
+
+    if (!found) {
+      sec2 = parseInt(t)
+    }
+    return sec2
+}
+
+function UpdateScroll(e) {
+    var d = new Date();
+    var n = d.getTime();
+    if (autoScrollDeadline >= 0 && n > autoScrollDeadline) {
+        document.getElementById("autoscroll_check").checked = false
+    }
+}
+
+var d = new Date();
+autoScrollDeadline = -1
+document.addEventListener('scroll', UpdateScroll);
+
+
+document.onreadystatechange = () => {
+    if (document.readyState === 'complete') {
+
+        var url = new URL(window.location.href);
+
+        var v = url.searchParams.get("v");
+
+        if (v) {
+            if (v.length == 11) {
+                // valid video, call the CC function
+                processVideo2(v, 0)
+            } else if (v.length > 11) {
+                // Assume a full URL
+                processVideoHelpler(v)
+            }
+        }
+    } // Document Complete
+}; // Document Ready State Change
+
+function JumpToMarker(e) {
+    e.preventDefault();
+    UpdateMarkers('once')
+}
+
+function UpdateMarkers(jump_to_element) {
+    var current_time = player.getCurrentTime();
+    UpdateMarkersHelper(jump_to_element, current_time);
+}
+
+function fractionScrolledIntoView(el) {
+    padding = 50;
+    var elemTop = el.getBoundingClientRect().top - padding/2;
+    var elemBottom = el.getBoundingClientRect().bottom + padding/2;
+    var elemHeight = elemBottom - elemTop
+
+    if (elemTop > 0) {
+        topFrac = 1
+    } else {
+        topFrac = (elemTop + elemHeight) / elemHeight
+    }
+    
+    // Off the bottom of the screen
+    bottomFrac = 1 + (window.innerHeight - elemBottom) / elemHeight
+    bottomFrac = Math.max(0, bottomFrac)
+    bottomFrac = Math.min(1, bottomFrac)
+    
+    
+    fraction = Math.min(topFrac, bottomFrac)
+    return fraction
+}
+
+function MaybeScrollToElement(closest_marker, jump_to_element) {
+    if (jump_to_element == 'once') {
+        closest_marker.dom.scrollIntoView({behavior: "smooth", block: "center"})
+        autoScrollDeadline = 0 // disable auto scroll
+    } else if (jump_to_element == 'auto') {
+        if (fractionScrolledIntoView(closest_marker.dom) < 1.0) {
+            var blockv = "start"
+            if (IsCompressed()) {
+                blockv = "center"
+            }
+            closest_marker.dom.scrollIntoView({behavior: "smooth", block: blockv})
+            var d = new Date();
+            autoScrollDeadline = d.getTime() + 600;
+        }
+    }
+}
+
+function UpdateMarkersHelper(jump_to_element, current_time) {
+    var has_marked = false
+    var closest_marker = null
+    var last_t_start = 0.0
+    var j = 0; // NOTE: to extend for several players
+    markers[j].forEach(function(marker, i) {
+        if (current_time >= marker.time_start && current_time <= marker.time_end) {
+            has_marked = true
+            marker.dom.classList.add("youtube-marker-current");
+            MaybeScrollToElement(marker, jump_to_element)
+            jump_to_element = ''
+        } else {
+            marker.dom.classList.remove("youtube-marker-current");
+        }
+        start_t = parseFloat(marker.time_start)
+        if (start_t < current_time && start_t > last_t_start) {
+            closest_marker = marker
+            last_t_start = start_t
+        }
+    });
+    if (!has_marked && closest_marker != null) {
+        closest_marker.dom.classList.add("youtube-marker-current");
+        MaybeScrollToElement(closest_marker, jump_to_element)
+    }
+    return false
+}
+
+function ToggleAutoscroll(event) {
+    var should_autoscroll = document.getElementById("autoscroll_check").checked
+    if (should_autoscroll) {
+        console.log('starting autoscroll')
+        AutoscrollTimeout()
+    }
+}
+
+function AutoscrollTimeout() {
+    UpdateMarkers('auto')
+    var should_autoscroll = document.getElementById("autoscroll_check").checked
+    if (should_autoscroll) {
+        setTimeout(AutoscrollTimeout, 100)
+    }
+}
+
+function IsCompressed() {
+    var colel = document.getElementById("video_col")
+    if (window.getComputedStyle(colel).maxWidth == '100%') {
+        return false
+    }
+    return true
+}
+
+</script>
+
+</head>
+
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar navbar-light bg-light static-top">
+    <div class="container">
+      <span class="navbar-brand" id="title">YouTube Transcript</span>
+      <div id="title-search" style="display:none;">
+        <form action="javascript:;">
+            <div class="form-row">
+              <div class="col-12 col-md-9 mb-2 mb-md-0">
+                <input id="video_url_top" class="form-control form-control-lg" placeholder="enter a youtube url ...">
+              </div>
+              <div class="col-12 col-md-3">
+                <button class="btn btn-block btn-lg btn-primary" onclick="processVideo(true);">Go</button>
+              </div>
+            </div>
+            </form>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid" id="outputbox" style="display:none">
+  <div class="row">
+      
+    <div class="col-sm sticky-top" id="video_col">
+      <div class="videocontainer" id="embedded_video">
+      </div>
+      <div class="jumplink">
+          <a href="javascript:;" onclick="JumpToMarker(event)">Jump to video position in transcript</a>
+          <br />
+          <label><input type="checkbox" id="autoscroll_check" onclick="ToggleAutoscroll(event)"> Autoscroll</label>
+      </div>
+    </div>
+    <div class="col-sm">
+      <div id="demo"><i>Loading captions...</i></div>
+    </div>
+  </div>
+</div>
+
+<!-- Masthead -->
+  <header class="masthead text-white text-center">
+    <div class="overlay"></div>
+    <div class="container">
+      <div class="row">
+        <div class="col-xl-9 mx-auto">
+          <h1 class="mb-5" id="header_text">Get a transcript:</h1>
+        </div>
+        <div class="col-md-10 col-lg-8 col-xl-7 mx-auto">
+          <form action="javascript:;">
+            <div class="form-row">
+              <div class="col-12 col-md-9 mb-2 mb-md-0">
+                <input id="video_url" class="form-control form-control-lg" placeholder="enter a youtube url ...">
+              </div>
+              <div class="col-12 col-md-3">
+                <button class="btn btn-block btn-lg btn-primary" onclick="processVideo(false);">Go</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Icons Grid -->
+  <section class="features-icons bg-light text-center">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-4">
+          <div class="features-icons-item mx-auto mb-5 mb-lg-0 mb-lg-3">
+            <div class="features-icons-icon d-flex">
+              <i class="icon-screen-desktop m-auto text-primary"></i>
+            </div>
+            <h3>Reading is Faster</h3>
+            <p class="lead mb-0">Blah blah welcome to my video begone!</p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="features-icons-item mx-auto mb-5 mb-lg-0 mb-lg-3">
+            <div class="features-icons-icon d-flex">
+              <i class="icon-layers m-auto text-primary"></i>
+            </div>
+            <h3>Probably Won't Fail</h3>
+            <p class="lead mb-0">Featuring the latest build of an undocumented API.</p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="features-icons-item mx-auto mb-0 mb-lg-3">
+            <div class="features-icons-icon d-flex">
+              <i class="icon-check m-auto text-primary"></i>
+            </div>
+            <h3>Easy to Use</h3>
+            <p class="lead mb-0">Website definitely made with a bootstrap template.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- Bootstrap core JavaScript -->
+  <script src="static/vendor/jquery/jquery.min.js"></script>
+  <script src="static/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+</body>
+
+</html>

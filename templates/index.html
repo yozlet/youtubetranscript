@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <title>YouTube Transcripts</title>
+
+  <!-- Bootstrap core CSS -->
+  <link href="/static/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/static/css/video.css" rel="stylesheet">
+
+  <!-- Custom fonts for this template -->
+  <link href="/static/vendor/fontawesome-free/css/all.min.css" rel="stylesheet">
+  <link href="/static/vendor/simple-line-icons/css/simple-line-icons.css" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700,300italic,400italic,700italic" rel="stylesheet" type="text/css">
+
+  <!-- Custom styles for this template -->
+  <link href="/static/css/landing-page.css" rel="stylesheet">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+  <script type="text/javascript">
+      $.ajax({
+  type: "GET",
+  url: "https://video.google.com/timedtext?type=track&v={{ video_id }}&id=0&lang=en",
+  crossDomain: true,
+}).done(function(data) {
+  console.log(data);
+  getCaption(data);
+});
+
+
+var parser, xmlDoc;
+var HTML_captions = "";
+
+
+function getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, '\\$&');
+    var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, ' '));
+}
+
+alert(getParameterByName('v'));
+
+
+// Parse the AJAX response and get the captions.
+function getCaption(ajax_response) {
+  try {
+
+    parser = new DOMParser();
+    xmlDoc = parser.parseFromString(ajax_response, "text/xml");
+    //console.log(ajax_response);
+    //console.log(xmlDoc.getElementsByTagName("transcript").length);
+
+    if (xmlDoc.getElementsByTagName("transcript").length > 0) {
+      // Loop the results of the xmlDoc:
+      for (var i = 0; i < xmlDoc.getElementsByTagName("transcript")[0].childNodes.length; i++) {
+          caption=xmlDoc.getElementsByTagName("transcript")[0].childNodes[i].innerHTML
+        console.log(caption);
+        HTML_captions += caption + "<br/>";
+      }
+    } else {
+        last_t = 0.0
+        break_t = 5.0 // seconds
+        // Loop the results of the ajax_response;
+        for (var i = 0; i < ajax_response.getElementsByTagName("transcript")[0].childNodes.length; i++) {
+            caption = ajax_response.getElementsByTagName("transcript")[0].childNodes[i].innerHTML
+            start = parseFloat(ajax_response.getElementsByTagName("transcript")[0].childNodes[i].getAttribute('start'))
+            //duration = ajax_response.getElementsByTagName("transcript")[0].childNodes[i].getAttribute('dur')
+            caption = caption.replace("&amp;#39;", "'")
+            caption = caption.replace("&amp;#39;", "'")
+            
+            if (start > last_t + break_t) {
+                console.log(last_t + break_t + ' is bigger')
+                HTML_captions += "<br/>";
+            }
+            HTML_captions += '<a href="https://www.youtube.com/embed/{{ video_id }}?start=' + Math.round(start) + '" target="vidembed" class="textlink">' + caption + '</a>' + "<br/>";
+            last_t = start;
+        }
+    }
+
+    document.getElementById("demo").innerHTML = "<i>Preparing captions...</i>";
+    setTimeout(fillData(), 2000);
+
+  } catch (err) {
+    console.log(err);
+    alert('Error at getCaption function - see console form more details.');
+  }
+}
+
+
+// Fill the data "captions" in a HTML "div" control.
+function fillData() {
+  try {
+    document.getElementById("demo").innerHTML = HTML_captions;
+  } catch (err) {
+    console.log(err);
+    alert('Error at fillData function - see console form more details.');
+  }
+
+}
+  </script>
+
+</head>
+
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar navbar-light bg-light static-top">
+    <div class="container">
+      <a class="navbar-brand" href="/">Run another YouTube transcript</a>
+    </div>
+  </nav>
+
+   <div class="container-fluid">
+  <div class="row">
+    <div class="col-sm">
+      <div class="videocontainer">
+        <iframe name="vidembed" src="https://www.youtube.com/embed/{{ video_id }}" 
+        frameborder="0" allowfullscreen class="video"></iframe>
+      </div>
+    </div>
+    <div class="col-sm">
+      <div id="demo"><i>Loading captions...</i></div>
+    </div>
+  </div>
+</div>
+
+  <!-- Footer -->
+  <footer class="footer bg-light">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-6 h-100 text-center text-lg-left my-auto">
+          <ul class="list-inline mb-2">
+            <li class="list-inline-item">
+              Built with <a href="https://github.com/jdepoix/youtube-transcript-api">YouTube Transcript API</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src="/static/vendor/jquery/jquery.min.js"></script>
+  <script src="/static/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+</body>
+
+</html>

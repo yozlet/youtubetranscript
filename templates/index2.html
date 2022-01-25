@@ -497,7 +497,7 @@ function MaybeScrollToElement(closest_marker, jump_to_element) {
             }
             closest_marker.dom.scrollIntoView({behavior: "smooth", block: blockv})
             var d = new Date();
-            autoScrollDeadline = d.getTime() + 600;
+            autoScrollDeadline = d.getTime() + 1000;
         }
     }
 }
@@ -591,7 +591,7 @@ function IsCompressed() {
       </div>
     </div>
     <div class="col-sm">
-      <div id="demo"><i>Loading captions...</i></div>
+      <div id="demo" style="word-break: break-word"><i>Loading captions...</i></div>
     </div>
   </div>
 </div>

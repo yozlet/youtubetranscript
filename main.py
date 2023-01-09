@@ -16,23 +16,11 @@ from youtube_transcript_api import (
 
 USE_CACHE = False
 
-html_escape_table = {
-    "&": "&amp;",
-    '"': "&quot;",
-    "'": "&apos;",
-    ">": "&gt;",
-    "<": "&lt;",
-}
-
-def html_escape(text):
-    return "".join(html_escape_table.get(c, c) for c in text)
-
-
 # If `entrypoint` is not defined in app.yaml, App Engine will look for an app
 # called `app` in `main.py`.
 app = Flask(__name__)
 
-def format_line(video_id, line):
+def xml_format_line(video_id, line):
     start = line["start"]
     duration = line["duration"]
     # end = start+duration
@@ -41,14 +29,14 @@ def format_line(video_id, line):
     return out
 
 
-def format_transcript(video_id, trans):
+def xml_format_transcript(video_id, trans):
     one_break = 0
     two_break = 5
 
     out = '<?xml version="1.0" encoding="utf-8" ?><transcript>'
     last_t = 0
     for line in trans:
-        out += format_line(video_id, line)
+        out += xml_format_line(video_id, line)
     out += "</transcript>"
     return out
 
@@ -66,7 +54,7 @@ def get_transcript(video_id):
 
         print("Cache miss")
     transcript = YouTubeTranscriptApi.get_transcript(video_id)
-    formatted = format_transcript(video_id, transcript)
+    formatted = xml_format_transcript(video_id, transcript)
     if USE_CACHE:
         f = open(cache_dir + "/" + video_id, "w")
         f.write(formatted)
@@ -86,7 +74,7 @@ def get_transcript(video_id):
 
 
 @app.route("/")
-def hello():
+def root():
     if (
         request.args.get("server_vid") is None
         or len(request.args.get("server_vid")) < 1

@@ -6,7 +6,7 @@
 # For license, see the file named "LICENSE" (it's GPL 3.0)
 
 import os
-from flask import Flask, request, render_template, Response
+from flask import Flask, request, render_template, Response, escape
 from youtube_transcript_api import (
     YouTubeTranscriptApi,
     VideoUnavailable,
@@ -36,16 +36,8 @@ def format_line(video_id, line):
     start = line["start"]
     duration = line["duration"]
     # end = start+duration
-    text = line["text"]
-    out = (
-        '<text start="'
-        + str(start)
-        + '" dur="'
-        + str(duration)
-        + '">'
-        + html_escape(text)
-        + "</text>"
-    )
+    text = escape(line["text"])
+    out = f'<text start="{start}" dur="{duration}">{text}</text>'
     return out
 
 
